@@ -18,9 +18,7 @@ int receive_and_send(int connfd1, int connfd2, size_t len) {
   int bytes_received;
   char buffer[len];
 
-  // Primim exact len octeti de la connfd1
   bytes_received = recv_all(connfd1, buffer, len);
-  // S-a inchis conexiunea
   if (bytes_received == 0) {
     return 0;
   }
@@ -34,46 +32,6 @@ int receive_and_send(int connfd1, int connfd2, size_t len) {
   }
 
   return bytes_received;
-}
-
-void run_chat_server(int listenfd) {
-  struct sockaddr_in client_addr1;
-  struct sockaddr_in client_addr2;
-  socklen_t clen1 = sizeof(client_addr1);
-  socklen_t clen2 = sizeof(client_addr2);
-
-  int connfd1 = -1;
-  int connfd2 = -1;
-  int rc;
-
-  rc = listen(listenfd, 2);
-  DIE(rc < 0, "listen");
-
-  printf("Astept conectarea primului client...\n");
-  connfd1 = accept(listenfd, (struct sockaddr *)&client_addr1, &clen1);
-  DIE(connfd1 < 0, "accept");
-
-  printf("Astept connectarea clientului 2...\n");
-  connfd2 = accept(listenfd, (struct sockaddr *)&client_addr2, &clen2);
-  DIE(connfd2 < 0, "accept");
-
-  while (1) {
-    printf("Primesc de la 1 si trimit catre 2...\n");
-    int rc = receive_and_send(connfd1, connfd2, sizeof(struct chat_packet));
-    if (rc <= 0) {
-      break;
-    }
-
-    printf("Primesc de la 2 si trimit catre 1...\n");
-    rc = receive_and_send(connfd2, connfd1, sizeof(struct chat_packet));
-    if (rc <= 0) {
-      break;
-    }
-  }
-
-  // Inchidem conexiunile si socketii creati
-  close(connfd1);
-  close(connfd2);
 }
 
 void run_chat_multi_server(int listenfd) {
@@ -117,8 +75,7 @@ void run_chat_multi_server(int listenfd) {
           // Adaugam noul socket intors de accept() la multimea descriptorilor
           // de citire
           poll_fds[num_sockets].fd = newsockfd;
-          poll_fds[num_sockets].events = POLLIN;
-          num_sockets++;
+          poll_fds[num_sockets++].events = POLLIN;
 
           printf("Noua conexiune de la %s, port %d, socket client %d\n",
                  inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port),
@@ -193,10 +150,6 @@ int main(int argc, char *argv[]) {
   rc = bind(listenfd, (const struct sockaddr *)&serv_addr, sizeof(serv_addr));
   DIE(rc < 0, "bind");
 
-  /*
-    TODO 2.1: Folositi implementarea cu multiplexare
-  */
-  // run_chat_server(listenfd);
   run_chat_multi_server(listenfd);
 
   // Inchidem listenfd
