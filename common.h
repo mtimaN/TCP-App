@@ -12,7 +12,7 @@
  * @param len bytes
  * @return int 0 if succeeded, -1 otherwise
  */
-int send_all(int sockfd, void *buff, size_t len);
+int send_all(int sockfd, void *buffer, size_t len);
 
 /**
  * @brief receive exactly len bytes and store them into the buffer
@@ -22,7 +22,7 @@ int send_all(int sockfd, void *buff, size_t len);
  * @param len bytes
  * @return int 0 if succeeded, -1 otherwise
  */
-int recv_all(int sockfd, void *buff, size_t len);
+int recv_all(int sockfd, void *buffer, size_t len);
 
 /* max message size */
 #define MSG_MAXSIZE 1024

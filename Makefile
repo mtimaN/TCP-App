@@ -1,5 +1,4 @@
-
-CFLAGS = -Wall -g -Werror -Wno-error=unused-variable
+CFLAGS = -Wall -g -Werror -Wno-error=unused-variable -std=c99
 
 # Portul pe care asculta serverul
 PORT = 12345
@@ -9,13 +8,11 @@ IP_SERVER = 127.0.0.1
 
 all: server subscriber
 
-common.o: common.c
+common.o: common.cpp
 
-# Compileaza server.c
-server: server.c common.o
+server: server.cpp common.o
 
-# Compileaza client.c
-subscriber: subscriber.c common.o
+subscriber: subscriber.cpp common.o
 
 .PHONY: clean run_server run_subscriber
 
