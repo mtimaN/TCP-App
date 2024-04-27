@@ -1,8 +1,10 @@
-#ifndef __COMMON_H__
-#define __COMMON_H__
+#pragma once
 
 #include <stddef.h>
 #include <stdint.h>
+#include <vector>
+
+#define MAX_ID_SIZE 10
 
 /**
  * @brief send exactly len bytes from buffer
@@ -24,11 +26,9 @@ int send_all(int sockfd, void *buffer, size_t len);
  */
 int recv_all(int sockfd, void *buffer, size_t len);
 
-/* max message size */
-#define MSG_MAXSIZE 1024
-
-typedef struct subscribe {
-  char topic[51];
-} subscribe_t;
-
-#endif
+typedef struct subscriber {
+	int socketfd;
+	char id[MAX_ID_SIZE];
+	bool online;
+	std::vector<char*> topics;
+} subscriber_t;

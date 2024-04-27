@@ -1,10 +1,10 @@
-CFLAGS = -Wall -g -Werror -Wno-error=unused-variable -std=c99
+# Server listening port
+PORT = 8888
 
-# Portul pe care asculta serverul
-PORT = 12345
+# Subscriber ID, default = 0
+CLIENT_ID = ""
 
-# Adresa IP a serverului
-IP_SERVER = 127.0.0.1
+SERVER_IP = 127.0.0.1
 
 all: server subscriber
 
@@ -18,11 +18,11 @@ subscriber: subscriber.cpp common.o
 
 # Ruleaza serverul
 run_server:
-	./server ${IP_SERVER} ${PORT}
+	./server ${PORT}
 
 # Ruleaza subscriber
 run_subscriber:
-	./subscriber ${IP_SERVER} ${PORT}
+	./subscriber ${CLIENT_ID} ${SERVER_IP} ${PORT}
 
 clean:
-	rm -rf server client *.o *.dSYM
+	rm -rf server subscriber *.o *.dSYM
