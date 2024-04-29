@@ -1,18 +1,24 @@
+CXXFLAGS = -Wall -Wextra -Werror
 # Server listening port
-PORT = 8888
+PORT = 12345
 
 # Subscriber ID, default = 0
-CLIENT_ID = ""
+CLIENT_ID = "Matei"
 
 SERVER_IP = 127.0.0.1
 
-all: server subscriber
+OBJ = common.o parser.o
 
-common.o: common.cpp
+all: subscriber server
 
-server: server.cpp common.o
+%.o: %.cpp
+	$(CXX) -c -o $@ $< $(CXXFLAGS)
 
-subscriber: subscriber.cpp common.o
+server: $(OBJ) server.cpp
+	$(CXX) -o $@ $^ $(CXXFLAGS)
+
+subscriber: $(OBJ) subscriber.cpp
+	$(CXX) -o $@ $^ $(CXXFLAGS)
 
 .PHONY: clean run_server run_subscriber
 

@@ -3,8 +3,12 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <vector>
+#include <string>
 
-#define MAX_ID_SIZE 10
+#define MAX_ID_SIZE 11
+#define MAX_CONNECTIONS 32
+#define MAX_UDP_PAYLOAD 1551
+#define MAX_COMMAND_LEN 5
 
 /**
  * @brief send exactly len bytes from buffer
@@ -30,5 +34,5 @@ typedef struct subscriber {
 	int socketfd;
 	char id[MAX_ID_SIZE];
 	bool online;
-	std::vector<char*> topics;
+	std::vector<std::string> topics;
 } subscriber_t;
