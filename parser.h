@@ -13,6 +13,8 @@
 #include <sys/types.h>
 #include <vector>
 
+#include "common.h"
+
 /**
  * @brief possible data types for UDP transmissions
  */
@@ -30,4 +32,6 @@ void process_tcp_login(std::vector<struct pollfd> &poll_fds, std::vector<subscri
  * 
  * @param udp_fd socket fd for the udp connection
  */
-void parse_udp_message(const int udp_fd);
+void process_udp_message(std::vector<subscriber_t> &subscribers, const int udp_fd);
+
+void parse_notification(const char *buffer);

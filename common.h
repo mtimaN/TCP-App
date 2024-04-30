@@ -7,7 +7,8 @@
 
 #define MAX_ID_SIZE 11
 #define MAX_CONNECTIONS 32
-#define MAX_UDP_PAYLOAD 1551
+#define MAX_UDP_PAYLOAD 1557
+#define UDP_OFFSET 6
 #define MAX_COMMAND_LEN 5
 
 /**

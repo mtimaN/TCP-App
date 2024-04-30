@@ -15,10 +15,40 @@
 
 #include "common.h"
 #include "helpers.h"
+#include "parser.h"
 
 void run_client(int sockfd) {
-	send(sockfd, "Hello", 6, 0);
+	struct pollfd poll_fds[] = { {STDIN_FILENO, POLLIN, 0}, {sockfd, POLLIN, 0} };
+	int rc;
+
+	const int size = sizeof(poll_fds) / sizeof(*poll_fds);
+	char buf[MAX_UDP_PAYLOAD] = {0};
+
     while (1) {
+		poll(poll_fds, size, -1);
+
+		if (poll_fds[0].revents & POLLIN) {
+			fgets(buf, sizeof(buf), stdin);
+			buf[strlen(buf) - 1] = '\0';
+			printf("%s\n", buf);
+			if (!strncmp(buf, "exit", 4)) {
+				return;
+			} else if (!strncmp(buf, "subscribe", sizeof("subscribe") - 1)) {
+				char *off_buf = buf + sizeof("subscribe") - 1;
+				off_buf[0] = 's';
+				rc = send(poll_fds[1].fd, off_buf, strlen(off_buf), 0);
+				DIE(rc < 0, "send");
+			} else if (!strncmp(buf, "unsubscribe", sizeof("unsubscribe") - 1)) {
+				char *off_buf = buf + sizeof("unsubscribe") - 1;
+				buf[sizeof("unsubscribe") - 1] = 'u';
+				rc = send(poll_fds[1].fd, off_buf, strlen(off_buf), 0);
+				DIE(rc < 0, "send");
+			}
+		} else if (poll_fds[1].revents & POLLIN) {
+			rc = recv(poll_fds[1].fd, buf, sizeof(buf), 0);
+			DIE(rc < 0, "recv");
+			parse_notification(buf);
+		}
     }
 }
 

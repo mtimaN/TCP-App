@@ -11,6 +11,8 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <vector>
+#include <string>
+#include <algorithm>
 
 #include "common.h"
 #include "helpers.h"
@@ -41,12 +43,12 @@ void run_server(const int tcp_fd, const int udp_fd) {
 				if (poll_fds[i].fd == tcp_fd) {
 					process_tcp_login(poll_fds, subscribers, tcp_fd);
 				} else if (poll_fds[i].fd == udp_fd) {
-					parse_udp_message(udp_fd);
+					process_udp_message(subscribers, udp_fd);
 				} else if (poll_fds[i].fd == STDIN_FILENO) {
 					/* stdin command received */
-					char buff[MAX_COMMAND_LEN];
-					fgets(buff, MAX_COMMAND_LEN, stdin);
-					if (strcmp(buff, "exit") == 0) {
+					char buf[MAX_COMMAND_LEN];
+					fgets(buf, MAX_COMMAND_LEN, stdin);
+					if (strcmp(buf, "exit") == 0) {
 						return;
 					}
 				} else {
@@ -65,6 +67,27 @@ void run_server(const int tcp_fd, const int udp_fd) {
 						rc = close(poll_fds[i].fd);
 						DIE(rc < 0, "close");
 						poll_fds.erase(poll_fds.begin() + i);
+					} else {
+						if (buffer[0] == 's') {
+							/* subscribe */
+							for (auto &sub: subscribers) {
+								if (sub.socketfd == poll_fds[i].fd) {
+									sub.topics.push_back(std::string(buffer + 1));
+									printf("Subscribed successfully\n");
+									break;
+								}
+							}
+						} else if (buffer[0] == 'u') {
+							/* unsubscribe */
+							for (auto &sub: subscribers) {
+								if (sub.socketfd == poll_fds[i].fd) {
+									auto elem = std::find(sub.topics.begin(), sub.topics.end(), buffer + 1);
+									sub.topics.erase(elem);
+									printf("Unsubscribed successfully\n");
+									break;
+								}
+							}
+						}
 					}
 				}
 			}

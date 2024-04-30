@@ -24,6 +24,70 @@
 #include "parser.h"
 #include "helpers.h"
 
+#define MAX_TOPICS 25
+#define TOPIC_LEN 50
+#define MAX_CONTENT_LEN 1500
+
+bool topic_match(char *regex, char *topic) {
+	char *tokens_regex[MAX_TOPICS], *tokens_topic[MAX_TOPICS];
+
+	char *token = strtok(regex, "/");
+	int i = 0;
+	while (token != NULL) {
+		tokens_regex[i++] = strdup(token);
+		token = strtok(NULL, "/");
+	}
+	tokens_regex[i] = NULL;
+
+	token = strtok(topic, "/");
+	i = 0;
+	while (token != NULL) {
+		tokens_topic[i++] = strdup(token);
+		token = strtok(NULL, "/");
+	}
+	tokens_topic[i] = NULL;
+
+	i = 0;
+	int j = 0;
+	while (tokens_regex[i] && tokens_topic[j]) {
+		if (!strcmp(tokens_regex[i], "*")) {
+			i++;
+			if (tokens_regex[i] == NULL) {
+				return true;
+			}
+
+			while (tokens_topic[j] != NULL && strcmp(tokens_regex[i], tokens_topic[j])) {
+				j++;
+			}
+
+			if (tokens_topic[j] == NULL) {
+				return false;
+			}
+		} else if (strcmp(tokens_regex[i], "+")) {
+			if (strcmp(tokens_topic[i], tokens_topic[j])) {
+				return false;
+			}
+		}
+		i++;
+		j++;
+	}
+
+	bool res = false;
+	if (tokens_regex[i] == NULL && tokens_topic[j] == NULL) {
+		res = true;
+	}
+
+	for (i = 0; tokens_regex[i]; ++i) {
+		free(tokens_regex[i]);
+	}
+
+	for (j = 0; tokens_topic[j]; ++j) {
+		free(tokens_topic[j]);
+	}
+
+	return res;
+}
+
 void process_tcp_login(std::vector<struct pollfd> &poll_fds, std::vector<subscriber_t> &subscribers, int tcp_fd) {
 	/* connection received */
 	struct sockaddr_in cli_addr;
@@ -50,7 +114,7 @@ void process_tcp_login(std::vector<struct pollfd> &poll_fds, std::vector<subscri
 		printf("%s\n", it.id);
 		if (strcmp(it.id, id_buffer) == 0) {
 			if (it.online == true) {
-				printf("Client %s already connected\n", it.id);
+				printf("Client %s already connected.\n", it.id);
 				rc = close(newsockfd);
 				poll_fds.pop_back();
 			} else {
@@ -77,41 +141,60 @@ void process_tcp_login(std::vector<struct pollfd> &poll_fds, std::vector<subscri
 		inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
 }
 
-void parse_udp_message(const int udp_fd) {
+void process_udp_message(std::vector<subscriber_t> &subscribers, const int udp_fd) {
 
 	// UDP message
-	char buffer[MAX_UDP_PAYLOAD];
-	int rc = recv(udp_fd, buffer, MAX_UDP_PAYLOAD, 0);
-	DIE(rc < 0, "recv");
+	int rc;
+	char buffer[MAX_UDP_PAYLOAD] = {0};
+	struct sockaddr_in src_addr = {0, 0, 0, 0};
+	socklen_t addrlen = sizeof(src_addr);
+	int buffer_len = recvfrom(udp_fd, buffer + UDP_OFFSET, MAX_UDP_PAYLOAD, 0, (struct sockaddr *)&src_addr, &addrlen);
+	DIE(buffer_len < 0, "recv");
 
-	const char *topic = buffer;
-	const uint32_t topic_len = 50;
-	const uint8_t *data_type = (uint8_t *)topic + topic_len;
-	printf("data type: %hhd ", *data_type);
+	memcpy(buffer, &src_addr.sin_addr, sizeof(src_addr.sin_addr));
+	memcpy(buffer + sizeof(src_addr.sin_addr), &src_addr.sin_port, sizeof(src_addr.sin_port));
+
+	char formatted_topic[TOPIC_LEN + 1] = {0};
+	strncpy(formatted_topic, buffer + UDP_OFFSET, TOPIC_LEN);
+	for (const auto &sub: subscribers) {
+		for (const auto &regex: sub.topics) {
+			char *regex_cstr = strdup(regex.c_str());
+			char *topic_copy = strdup(formatted_topic);
+			if (topic_match(regex_cstr, topic_copy)) {
+				rc = send(sub.socketfd, buffer, buffer_len, 0);
+				DIE(rc < 0, "send");
+				free(regex_cstr);
+				free(topic_copy);
+				break;
+			}
+			free(regex_cstr);
+			free(topic_copy);
+		}
+	}
+}
+
+void parse_notification(const char *buffer) {
+	const char *topic = buffer + UDP_OFFSET;
+	const uint8_t *data_type = (uint8_t *)topic + TOPIC_LEN;
 	const int8_t *content = (int8_t *)data_type + 1;
+	char result[MAX_CONTENT_LEN + 1] = {0};
 
 	switch (*data_type) {
 		case INT: {
 			const uint8_t *sign = (uint8_t *)content;
 			const uint32_t *value = (uint32_t *)(sign + 1);
-			char result[20];
 			if (*sign == 1) {
 				snprintf(result, sizeof(result), "-%u", ntohl(*value));
 			} else {
 				snprintf(result, sizeof(result), "%u", ntohl(*value));
 			}
-			printf("%s\n", result);
 			break;
 		}
-			break;
 		case SHORT_REAL: {
-			char result[20];
 			const uint16_t *value = (uint16_t *)content;
 			snprintf(result, sizeof(result), "%.2f", (float)ntohs(*value) / 100);
-			printf("%s\n", result);
 			break;
 		}
-			break;
 		case FLOAT: {
 			const uint8_t *sign = (uint8_t *)content;
 			const uint32_t *value = (uint32_t *)(sign + 1);
@@ -121,16 +204,18 @@ void parse_udp_message(const int udp_fd) {
 			if (*sign == 1) {
 				parsed_float *= -1;
 			}
-			printf("%.*f\n", *power, parsed_float);
+			snprintf(result, sizeof(result), "%.*f\n", *power, parsed_float);
 			break;
 		}
 		case STRING: {
-			printf("%.1500s\n", (char *)content);
+			snprintf(result, sizeof(result), "%.1499s\n", (char *)content);
 			break;
 		}
 		default: {
 			printf("Unrecognized format\n");
-			break;
+			return;
 		}
 	}
+
+	printf("%s\n", result);
 }
