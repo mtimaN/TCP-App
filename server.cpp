@@ -53,13 +53,17 @@ void run_server(const int tcp_fd, const int udp_fd) {
 					}
 				} else {
 					/* woah? a client? */
-					char buffer[BUFSIZ];
-					rc = recv(poll_fds[i].fd, buffer, sizeof(buffer), 0);
+					char buffer[BUFSIZ] = {0};
+					int32_t receive_size;
+					rc = recv_all(poll_fds[i].fd, &receive_size, sizeof(receive_size));
 					DIE(rc < 0, "recv");
-					if (rc == 0) {
-						printf("connection closed\n");
+
+					rc = recv_all(poll_fds[i].fd, buffer, receive_size);
+					DIE(rc < 0, "recv");
+					if (receive_size == 0) {
 						for (auto &sub: subscribers) {
 							if (sub.socketfd == poll_fds[i].fd) {
+								printf("Client %s disconnected.\n", sub.id);
 								sub.online = false;
 								break;
 							}
@@ -72,8 +76,13 @@ void run_server(const int tcp_fd, const int udp_fd) {
 							/* subscribe */
 							for (auto &sub: subscribers) {
 								if (sub.socketfd == poll_fds[i].fd) {
-									sub.topics.push_back(std::string(buffer + 1));
-									printf("Subscribed successfully\n");
+									auto elem = std::find(sub.topics.begin(), sub.topics.end(), buffer + 1);
+									if (elem == sub.topics.end()) {
+										sub.topics.push_back(std::string(buffer + 1));
+										// printf("Subscribed successfully\n");
+									} else {
+										printf("Already subscribed to topic\n");
+									}
 									break;
 								}
 							}
@@ -83,7 +92,7 @@ void run_server(const int tcp_fd, const int udp_fd) {
 								if (sub.socketfd == poll_fds[i].fd) {
 									auto elem = std::find(sub.topics.begin(), sub.topics.end(), buffer + 1);
 									sub.topics.erase(elem);
-									printf("Unsubscribed successfully\n");
+									// printf("Unsubscribed successfully\n");
 									break;
 								}
 							}

@@ -30,23 +30,33 @@ void run_client(int sockfd) {
 		if (poll_fds[0].revents & POLLIN) {
 			fgets(buf, sizeof(buf), stdin);
 			buf[strlen(buf) - 1] = '\0';
-			printf("%s\n", buf);
 			if (!strncmp(buf, "exit", 4)) {
+				int32_t buf_len = 0;
+				int rc = send_all(poll_fds[1].fd, &buf_len, sizeof(buf_len));
+				DIE(rc < 0, "send");
 				return;
 			} else if (!strncmp(buf, "subscribe", sizeof("subscribe") - 1)) {
 				char *off_buf = buf + sizeof("subscribe") - 1;
+				int32_t buf_len = strlen(off_buf);
 				off_buf[0] = 's';
-				rc = send(poll_fds[1].fd, off_buf, strlen(off_buf), 0);
+				rc = send_all(poll_fds[1].fd, &buf_len, sizeof(buf_len));
 				DIE(rc < 0, "send");
+
+				rc = send_all(poll_fds[1].fd, off_buf, buf_len);
+				DIE(rc < 0, "send");
+				printf("Subscribed to topic %s\n", off_buf + 1);
 			} else if (!strncmp(buf, "unsubscribe", sizeof("unsubscribe") - 1)) {
 				char *off_buf = buf + sizeof("unsubscribe") - 1;
 				buf[sizeof("unsubscribe") - 1] = 'u';
+				printf("Unsubscribed from topic %s\n", off_buf + 1);
 				rc = send(poll_fds[1].fd, off_buf, strlen(off_buf), 0);
 				DIE(rc < 0, "send");
 			}
 		} else if (poll_fds[1].revents & POLLIN) {
-			rc = recv(poll_fds[1].fd, buf, sizeof(buf), 0);
+			int32_t buf_len;
+			rc = recv_all(poll_fds[1].fd, &buf_len, sizeof(buf_len));
 			DIE(rc < 0, "recv");
+			rc = recv_all(poll_fds[1].fd, buf, buf_len);
 			parse_notification(buf);
 		}
     }
@@ -54,13 +64,14 @@ void run_client(int sockfd) {
 
 int main(int argc, char *argv[]) {
 	if (argc != 4) {
-	printf("\n Usage: %s <id> <ip> <port>\n", argv[0]);
-	return 1;
+		printf("\n Usage: %s <id> <ip> <port>\n", argv[0]);
+		return 1;
 	}
+
+	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 
 	/* parse subscriber id */
 	char *id = argv[1];
-	printf("%s\n", id);
 	
 	/* parse given port */
 	uint16_t port;
@@ -87,11 +98,20 @@ int main(int argc, char *argv[]) {
 		perror("setsockopt(TCP_NODELAY) failed");
 	}
 
+	/* make socket reusable */
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
+		perror("setsockopt(SO_REUSEADDR) failed");
+	}
+
 	rc = connect(sockfd, (struct sockaddr *)&serv_addr, socket_len);
 	DIE(rc < 0, "connect");
 
 	/* send ID to the server */
-	rc = send(sockfd, id, sizeof(id), 0);
+	int32_t id_size = strlen(id);
+	rc = send_all(sockfd, &id_size, sizeof(id_size));
+	DIE(rc < 0, "send");
+	rc = send_all(sockfd, id, id_size);
+	DIE(rc < 0, "send");
 
 	run_client(sockfd);
 

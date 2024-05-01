@@ -13,6 +13,12 @@ int recv_all(int sockfd, void *buffer, size_t len) {
 		  return -1;
 		}
 
+		/* connection closed abruptly. ending recv_all */
+		if (ret == 0) {
+			*(uint32_t *)buffer = 0;
+			return 0;
+		}
+
 		buff += ret;
 		len -= ret;
 	}

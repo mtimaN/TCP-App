@@ -3,7 +3,7 @@ CXXFLAGS = -Wall -Wextra -Werror
 PORT = 12345
 
 # Subscriber ID, default = 0
-CLIENT_ID = "Matei"
+CLIENT_ID = "C1"
 
 SERVER_IP = 127.0.0.1
 
