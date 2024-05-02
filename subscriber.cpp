@@ -39,6 +39,7 @@ void run_client(int sockfd) {
 				char *off_buf = buf + sizeof("subscribe") - 1;
 				int32_t buf_len = strlen(off_buf);
 				off_buf[0] = 's';
+	
 				rc = send_all(poll_fds[1].fd, &buf_len, sizeof(buf_len));
 				DIE(rc < 0, "send");
 
@@ -47,15 +48,24 @@ void run_client(int sockfd) {
 				printf("Subscribed to topic %s\n", off_buf + 1);
 			} else if (!strncmp(buf, "unsubscribe", sizeof("unsubscribe") - 1)) {
 				char *off_buf = buf + sizeof("unsubscribe") - 1;
-				buf[sizeof("unsubscribe") - 1] = 'u';
-				printf("Unsubscribed from topic %s\n", off_buf + 1);
-				rc = send(poll_fds[1].fd, off_buf, strlen(off_buf), 0);
+				int32_t buf_len = strlen(off_buf);
+				off_buf[0] = 'u';
+
+				rc = send_all(poll_fds[1].fd, &buf_len, sizeof(buf_len));
 				DIE(rc < 0, "send");
+
+				rc = send_all(poll_fds[1].fd, off_buf, buf_len);
+				DIE(rc < 0, "send");
+				printf("Unsubscribed from topic %s\n", off_buf + 1);
 			}
 		} else if (poll_fds[1].revents & POLLIN) {
 			int32_t buf_len;
 			rc = recv_all(poll_fds[1].fd, &buf_len, sizeof(buf_len));
 			DIE(rc < 0, "recv");
+			if (buf_len == 0) {
+				printf("Server closed\n");
+				return;
+			}
 			rc = recv_all(poll_fds[1].fd, buf, buf_len);
 			parse_notification(buf);
 		}
@@ -68,7 +78,8 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
+	/* disable I/O buffering */
+	setvbuf(stdout, NULL, _IONBF, 0);
 
 	/* parse subscriber id */
 	char *id = argv[1];
@@ -82,7 +93,7 @@ int main(int argc, char *argv[]) {
 	const int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	DIE(sockfd < 0, "socket");
 
-	/* fill in serv_addr with server address*/
+	/* fill in serv_addr with server address */
 	struct sockaddr_in serv_addr = { .sin_family = AF_INET,
 									 .sin_port = htons(port),
 									 .sin_addr = { .s_addr = 0 },

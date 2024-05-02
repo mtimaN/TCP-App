@@ -65,7 +65,9 @@ bool topic_match(char *regex, char *topic) {
 			}
 
 			if (tokens_topic[j] == NULL) {
-				res = true;
+				if (tokens_regex[i] == NULL) {
+					res = true;
+				}
 				goto cleanup;
 			}
 
@@ -106,8 +108,7 @@ void process_tcp_login(std::vector<struct pollfd> &poll_fds, std::vector<subscri
 	poll_fds.push_back({newsockfd, POLLIN, 0});
 
 	int enable = 1;
-	/* making socket reusable */
-	if (setsockopt(newsockfd, SOL_TCP, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
+	if (setsockopt(newsockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
 		perror("setsockopt(REUSEADDR) failed");
 	}
 
@@ -116,7 +117,7 @@ void process_tcp_login(std::vector<struct pollfd> &poll_fds, std::vector<subscri
 		perror("setsockopt(TCP_NODELAY) failed");
 	}
 
-	char id_buffer[MAX_ID_SIZE];
+	char id_buffer[MAX_ID_SIZE] = {0};
 	int32_t id_len;
 	int rc = recv_all(newsockfd, &id_len, sizeof(id_len));
 	DIE(rc < 0, "recv");
@@ -124,7 +125,7 @@ void process_tcp_login(std::vector<struct pollfd> &poll_fds, std::vector<subscri
 	DIE(rc < 0, "recv");
 
 	for (auto &it: subscribers) {
-		if (strcmp(it.id, id_buffer) == 0) {
+		if (!strcmp(it.id, id_buffer)) {
 			if (it.online == true) {
 				printf("Client %s already connected.\n", it.id);
 				rc = close(newsockfd);
@@ -152,7 +153,7 @@ void process_tcp_login(std::vector<struct pollfd> &poll_fds, std::vector<subscri
 
 void process_udp_message(std::vector<subscriber_t> &subscribers, const int udp_fd) {
 
-	// UDP message
+	/* UDP message */
 	int rc;
 	char buffer[MAX_UDP_PAYLOAD + UDP_OFFSET] = {0};
 	struct sockaddr_in src_addr = {0, 0, 0, 0};
@@ -167,6 +168,9 @@ void process_udp_message(std::vector<subscriber_t> &subscribers, const int udp_f
 	char formatted_topic[TOPIC_LEN + 1] = {0};
 	strncpy(formatted_topic, buffer + UDP_OFFSET, TOPIC_LEN);
 	for (const auto &sub: subscribers) {
+		if (sub.online == false) {
+			continue;
+		}
 		for (const auto &regex: sub.topics) {
 			char *regex_cstr = strdup(regex.c_str());
 			char *topic_copy = strdup(formatted_topic);
@@ -191,6 +195,7 @@ void parse_notification(const char *buffer) {
 	const uint8_t *data_type = (uint8_t *)topic + TOPIC_LEN;
 	const int8_t *content = (int8_t *)data_type + 1;
 	char result[MAX_CONTENT_LEN + 1] = {0};
+
 	snprintf(result, sizeof(result), "%s", inet_ntoa(*(struct in_addr *)buffer));
 	offset = strlen(result);
 	result[offset++] = ':';
@@ -198,11 +203,12 @@ void parse_notification(const char *buffer) {
 	offset = strlen(result);
 	snprintf(result + offset, TOPIC_LEN + 7, " - %s - ", topic);
 	offset += std::min(strlen(topic), (size_t)TOPIC_LEN) + 6;
+
 	switch (*data_type) {
 		case INT: {
 			const uint8_t *sign = (uint8_t *)content;
 			const uint32_t *value = (uint32_t *)(sign + 1);
-			if (*sign == 1) {
+			if (*sign == 1 && *value != 0) {
 				snprintf(result + offset, sizeof(result), "INT - -%u", ntohl(*value));
 			} else {
 				snprintf(result + offset, sizeof(result), "INT - %u", ntohl(*value));
@@ -227,7 +233,7 @@ void parse_notification(const char *buffer) {
 			break;
 		}
 		case STRING: {
-			snprintf(result + offset, sizeof(result), "STRING - %.1499s", (char *)content);
+			snprintf(result + offset, sizeof(result), "STRING - %.1500s", (char *)content);
 			break;
 		}
 		default: {

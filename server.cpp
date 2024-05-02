@@ -18,7 +18,6 @@
 #include "helpers.h"
 #include "parser.h"
 
-
 void run_server(const int tcp_fd, const int udp_fd) {
 	std::vector<struct pollfd> poll_fds(3);
 	std::vector<subscriber_t> subscribers;
@@ -37,7 +36,6 @@ void run_server(const int tcp_fd, const int udp_fd) {
 	while (1) {
 		rc = poll(poll_fds.data(), poll_fds.size(), -1);
 		DIE(rc < 0, "poll");
-
 		for (uint32_t i = 0; i < poll_fds.size(); ++i) {
 			if (poll_fds[i].revents & POLLIN) {
 				if (poll_fds[i].fd == tcp_fd) {
@@ -48,11 +46,18 @@ void run_server(const int tcp_fd, const int udp_fd) {
 					/* stdin command received */
 					char buf[MAX_COMMAND_LEN];
 					fgets(buf, MAX_COMMAND_LEN, stdin);
-					if (strcmp(buf, "exit") == 0) {
-						return;
+					if (!strcmp(buf, "exit")) {
+						continue;
 					}
+
+					/* close sockets before exiting */
+					for (auto &fd: poll_fds) {
+						close(fd.fd);
+					}
+
+					return;
 				} else {
-					/* woah? a client? */
+					/* communication from TCP client */
 					char buffer[BUFSIZ] = {0};
 					int32_t receive_size;
 					rc = recv_all(poll_fds[i].fd, &receive_size, sizeof(receive_size));
@@ -61,6 +66,7 @@ void run_server(const int tcp_fd, const int udp_fd) {
 					rc = recv_all(poll_fds[i].fd, buffer, receive_size);
 					DIE(rc < 0, "recv");
 					if (receive_size == 0) {
+						/* disconnecting */
 						for (auto &sub: subscribers) {
 							if (sub.socketfd == poll_fds[i].fd) {
 								printf("Client %s disconnected.\n", sub.id);
@@ -71,6 +77,7 @@ void run_server(const int tcp_fd, const int udp_fd) {
 						rc = close(poll_fds[i].fd);
 						DIE(rc < 0, "close");
 						poll_fds.erase(poll_fds.begin() + i);
+
 					} else {
 						if (buffer[0] == 's') {
 							/* subscribe */
@@ -79,7 +86,6 @@ void run_server(const int tcp_fd, const int udp_fd) {
 									auto elem = std::find(sub.topics.begin(), sub.topics.end(), buffer + 1);
 									if (elem == sub.topics.end()) {
 										sub.topics.push_back(std::string(buffer + 1));
-										// printf("Subscribed successfully\n");
 									} else {
 										printf("Already subscribed to topic\n");
 									}
@@ -92,7 +98,6 @@ void run_server(const int tcp_fd, const int udp_fd) {
 								if (sub.socketfd == poll_fds[i].fd) {
 									auto elem = std::find(sub.topics.begin(), sub.topics.end(), buffer + 1);
 									sub.topics.erase(elem);
-									// printf("Unsubscribed successfully\n");
 									break;
 								}
 							}
@@ -111,7 +116,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* disable buffering I/O */
-	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
+	setvbuf(stdout, NULL, _IONBF, 0);
 
 	uint16_t port;
 	int rc = sscanf(argv[1], "%hu", &port);
@@ -138,8 +143,9 @@ int main(int argc, char *argv[]) {
 		perror("setsockopt(SO_REUSEADDR) failed");
 	}
 
-	if (setsockopt(udp_fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
-		perror("setsockopt(SO_REUSEADDR) failed");
+	/* disabling Nagel's Algorithm */
+	if (setsockopt(tcp_fd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(int)) < 0) {
+		perror("setsockopt(TCP_NODELAY) failed");
 	}
 
 	rc = bind(tcp_fd, (const struct sockaddr *)&serv_addr, len);
@@ -149,10 +155,6 @@ int main(int argc, char *argv[]) {
 	DIE(rc < 0, "bind");
 
 	run_server(tcp_fd, udp_fd);
-
-	/* close sockets */
-	close(tcp_fd);
-	close(udp_fd);
 
 	return 0;
 }

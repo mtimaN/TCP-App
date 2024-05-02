@@ -9,7 +9,7 @@
 #define MAX_CONNECTIONS 32
 #define MAX_UDP_PAYLOAD 1557
 #define UDP_OFFSET 6
-#define MAX_COMMAND_LEN 5
+#define MAX_COMMAND_LEN 20
 
 /**
  * @brief send exactly len bytes from buffer

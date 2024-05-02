@@ -1,4 +1,4 @@
-CXXFLAGS = -Wall -Wextra -Werror
+CXXFLAGS = -Wall -Wextra -Werror -O0
 # Server listening port
 PORT = 12345
 
