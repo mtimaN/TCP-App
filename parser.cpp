@@ -28,8 +28,8 @@
 #define TOPIC_LEN 50
 #define MAX_CONTENT_LEN 1600
 
-bool topic_match(char *regex, char *topic) {
-	char *tokens_regex[MAX_TOPICS], *tokens_topic[MAX_TOPICS];
+bool topic_match(char *regex, char *tokens_topic[]) {
+	char *tokens_regex[MAX_TOPICS];
 
 	bool res = false;
 	char *token = strtok(regex, "/");
@@ -39,16 +39,7 @@ bool topic_match(char *regex, char *topic) {
 		tokens_regex[i++] = strdup(token);
 		token = strtok(NULL, "/");
 	}
-
 	tokens_regex[i] = NULL;
-
-	token = strtok(topic, "/");
-	i = 0;
-	while (token != NULL) {
-		tokens_topic[i++] = strdup(token);
-		token = strtok(NULL, "/");
-	}
-	tokens_topic[i] = NULL;
 
 	i = 0;
 	int j = 0;
@@ -87,10 +78,6 @@ bool topic_match(char *regex, char *topic) {
 cleanup:
 	for (i = 0; tokens_regex[i]; ++i) {
 		free(tokens_regex[i]);
-	}
-
-	for (j = 0; tokens_topic[j]; ++j) {
-		free(tokens_topic[j]);
 	}
 
 	return res;
@@ -152,7 +139,6 @@ void process_tcp_login(std::vector<struct pollfd> &poll_fds, std::vector<subscri
 }
 
 void process_udp_message(std::vector<subscriber_t> &subscribers, const int udp_fd) {
-
 	/* UDP message */
 	int rc;
 	char buffer[MAX_UDP_PAYLOAD + UDP_OFFSET] = {0};
@@ -167,24 +153,31 @@ void process_udp_message(std::vector<subscriber_t> &subscribers, const int udp_f
 
 	char formatted_topic[TOPIC_LEN + 1] = {0};
 	strncpy(formatted_topic, buffer + UDP_OFFSET, TOPIC_LEN);
+
+	char *tokens_topic[MAX_TOPICS];
+	char *token = strtok(formatted_topic, "/");
+	int i = 0;
+	while (token != NULL) {
+		tokens_topic[i++] = strdup(token);
+		token = strtok(NULL, "/");
+	}
+	tokens_topic[i] = NULL;
+
 	for (const auto &sub: subscribers) {
 		if (sub.online == false) {
 			continue;
 		}
 		for (const auto &regex: sub.topics) {
 			char *regex_cstr = strdup(regex.c_str());
-			char *topic_copy = strdup(formatted_topic);
-			if (topic_match(regex_cstr, topic_copy)) {
+			if (topic_match(regex_cstr, tokens_topic)) {
 				rc = send_all(sub.socketfd, &buffer_len, sizeof(int));
 				DIE(rc < 0, "send");
 				rc = send_all(sub.socketfd, buffer, buffer_len);
 				DIE(rc < 0, "send");
 				free(regex_cstr);
-				free(topic_copy);
 				break;
 			}
 			free(regex_cstr);
-			free(topic_copy);
 		}
 	}
 }
