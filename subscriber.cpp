@@ -1,3 +1,12 @@
+/**
+ * @file subscriber.cpp
+ * @author Matei Mantu (matei.mantu1@gmail.com)
+ * @brief client that subscribes to topics and receives data from server.
+ * the data is formatted by subscriber before being printed
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>

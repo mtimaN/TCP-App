@@ -1,3 +1,13 @@
+/**
+ * @file common.h
+ * @author Matei Mantu (matei.mantu1@gmail.com)
+ * @brief helper functions implemented during PCOM lab, useful for both server
+ * and client
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #pragma once
 
 #include <stddef.h>
@@ -31,6 +41,10 @@ int send_all(int sockfd, void *buffer, size_t len);
  */
 int recv_all(int sockfd, void *buffer, size_t len);
 
+/**
+ * @brief information regarding a subscriber
+ * 
+ */
 typedef struct subscriber {
 	int socketfd;
 	char id[MAX_ID_SIZE];

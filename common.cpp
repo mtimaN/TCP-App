@@ -1,3 +1,13 @@
+/**
+ * @file common.cpp
+ * @author Matei Mantu (matei.mantu1@gmail.com)
+ * @brief helper functions implemented during PCOM lab, useful for both server
+ * and client
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #include "common.h"
 
 #include <sys/socket.h>

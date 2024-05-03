@@ -1,3 +1,13 @@
+/**
+ * @file server.cpp
+ * @author Matei Mantu (matei.mantu1@gmail.com)
+ * @brief server that receives messages from UDP clients and propagates them
+ * to TCP subscribers
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
@@ -52,7 +62,8 @@ void run_server(const int tcp_fd, const int udp_fd) {
 
 					/* close sockets before exiting */
 					for (auto &fd: poll_fds) {
-						close(fd.fd);
+						rc = close(fd.fd);
+						DIE(rc < 0, "close");
 					}
 
 					return;
@@ -60,7 +71,8 @@ void run_server(const int tcp_fd, const int udp_fd) {
 					/* communication from TCP client */
 					char buffer[BUFSIZ] = {0};
 					int32_t receive_size;
-					rc = recv_all(poll_fds[i].fd, &receive_size, sizeof(receive_size));
+					rc = recv_all(poll_fds[i].fd, &receive_size,
+									sizeof(receive_size));
 					DIE(rc < 0, "recv");
 
 					rc = recv_all(poll_fds[i].fd, buffer, receive_size);
@@ -83,9 +95,11 @@ void run_server(const int tcp_fd, const int udp_fd) {
 							/* subscribe */
 							for (auto &sub: subscribers) {
 								if (sub.socketfd == poll_fds[i].fd) {
-									auto elem = std::find(sub.topics.begin(), sub.topics.end(), buffer + 1);
+									auto elem = std::find(sub.topics.begin(),
+												sub.topics.end(), buffer + 1);
 									if (elem == sub.topics.end()) {
-										sub.topics.push_back(std::string(buffer + 1));
+										sub.topics.push_back(
+													std::string(buffer + 1));
 									} else {
 										printf("Already subscribed to topic\n");
 									}
@@ -96,7 +110,8 @@ void run_server(const int tcp_fd, const int udp_fd) {
 							/* unsubscribe */
 							for (auto &sub: subscribers) {
 								if (sub.socketfd == poll_fds[i].fd) {
-									auto elem = std::find(sub.topics.begin(), sub.topics.end(), buffer + 1);
+									auto elem = std::find(sub.topics.begin(),
+												sub.topics.end(), buffer + 1);
 									sub.topics.erase(elem);
 									break;
 								}
