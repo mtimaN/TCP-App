@@ -9,7 +9,7 @@
 
 ### Technical aspects
 
-- The server accepts any number of clients(not considering hardware limitations), using poll for I/O multiplexing.
+- The server accepts any number of clients(not considering hardware limitations), using poll for I/O multiplexing. Upon each new client connection, the socket of the client is added to the poll. When a client leaves, the socket is removed from the poll. I also made sure that sudden disconnects(Ctrl+C) does not disrupt the flow of the program. For a "normal" disconnect, the STDIN_FILENO is added into the poll in order to receive input from the user.
 
 - For message framing, I made the following protocol: an `int32_t` value (`buf_len`) is first sent, representing the length of the buffer. Then, exactly `buf_len` bytes are sent, thus achieving variable length buffer send and receive with a small overhead of 4 bytes(not considering the overhead of sending a TCP segment). I used the `send_all` and `recv_all` functions from Lab 7 (TCP) in order to be able to send data correctly regardless of the length of the TCP buffer and avoid segmentation problems.
 
