@@ -244,7 +244,7 @@ void parse_notification(const char *buffer) {
 			break;
 		}
 		default: {
-			printf("Unrecognized format\n");
+			fprintf(stderr, "Unrecognized format\n");
 			return;
 		}
 	}

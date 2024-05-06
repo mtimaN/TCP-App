@@ -72,7 +72,7 @@ void run_client(int sockfd) {
 			rc = recv_all(poll_fds[1].fd, &buf_len, sizeof(buf_len));
 			DIE(rc < 0, "recv");
 			if (buf_len == 0) {
-				printf("Server closed\n");
+				fprintf(stderr, "Server closed\n");
 				return;
 			}
 			rc = recv_all(poll_fds[1].fd, buf, buf_len);
@@ -83,7 +83,7 @@ void run_client(int sockfd) {
 
 int main(int argc, char *argv[]) {
 	if (argc != 4) {
-		printf("\n Usage: %s <id> <ip> <port>\n", argv[0]);
+		fprintf(stderr, "\n Usage: %s <id> <ip> <port>\n", argv[0]);
 		return 1;
 	}
 

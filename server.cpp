@@ -100,8 +100,6 @@ void run_server(const int tcp_fd, const int udp_fd) {
 									if (elem == sub.topics.end()) {
 										sub.topics.push_back(
 													std::string(buffer + 1));
-									} else {
-										printf("Already subscribed to topic\n");
 									}
 									break;
 								}
@@ -126,7 +124,7 @@ void run_server(const int tcp_fd, const int udp_fd) {
 
 int main(int argc, char *argv[]) {
 	if (argc != 2) {
-		printf("\n Usage: %s <port>\n", argv[0]);
+		fprintf(stderr, "\n Usage: %s <port>\n", argv[0]);
 		return 1;
 	}
 
